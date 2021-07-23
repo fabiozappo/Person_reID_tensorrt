@@ -116,7 +116,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, fp16=Fals
                     optimizer.step()
 
                 # statistics
-                running_loss += loss.data[0] * now_batch_size
+                running_loss += loss.item() * now_batch_size
                 running_corrects += float(torch.sum(preds == y.data))
 
             epoch_loss = running_loss / dataset_sizes[phase]
