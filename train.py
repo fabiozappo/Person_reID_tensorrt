@@ -15,7 +15,7 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import time
 import os
-from model import ft_net
+from model import ft_net, mob_net
 from random_erasing import RandomErasing
 import yaml
 from shutil import copyfile
@@ -44,6 +44,9 @@ def save_network(network, epoch_label):
 
 def train_model(model, criterion, optimizer, scheduler, num_epochs=25, fp16=False):
     since = time.time()
+
+    # fp16 training
+    scaler = torch.cuda.amp.GradScaler()
 
     warm_up = 0.1  # We start from the 0.1*lrRate
     warm_iteration = round(dataset_sizes['train'] / batchsize) * warm_epoch  # first 5 epoch
@@ -85,22 +88,23 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, fp16=Fals
                 optimizer.zero_grad()
 
                 # forward
-                if phase == 'val':
-                    with torch.no_grad():
+                with torch.cuda.amp.autocast():
+                    if phase == 'val':
+                        with torch.no_grad():
+                            outputs = model(x)
+                    else:
                         outputs = model(x)
-                else:
-                    outputs = model(x)
 
-                # computing loss
-                if opt.circle:
-                    logits, ff = outputs
-                    fnorm = torch.norm(ff, p=2, dim=1, keepdim=True)
-                    ff = ff.div(fnorm.expand_as(ff))
-                    loss = criterion(logits, y) + criterion_circle(*convert_label_to_similarity(ff, y)) / now_batch_size
-                    _, preds = torch.max(logits.data, 1)
-                else:
-                    _, preds = torch.max(outputs.data, 1)
-                    loss = criterion(outputs, y)
+                    # computing loss
+                    if opt.circle:
+                        logits, ff = outputs
+                        fnorm = torch.norm(ff, p=2, dim=1, keepdim=True)
+                        ff = ff.div(fnorm.expand_as(ff))
+                        loss = criterion(logits, y) + criterion_circle(*convert_label_to_similarity(ff, y)) / now_batch_size
+                        _, preds = torch.max(logits.data, 1)
+                    else:
+                        _, preds = torch.max(outputs.data, 1)
+                        loss = criterion(outputs, y)
 
                 # backward + optimize only if in training phase
                 if epoch < warm_epoch and phase == 'train':
@@ -108,12 +112,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25, fp16=Fals
                     loss = loss * warm_up
 
                 if phase == 'train':
-                    if fp16:  # we use optimier to backward loss
-                        with amp.scale_loss(loss, optimizer) as scaled_loss:
-                            scaled_loss.backward()
-                    else:
-                        loss.backward()
-                    optimizer.step()
+                    scaler.scale(loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
 
                 # statistics
                 running_loss += loss.item() * now_batch_size
@@ -218,7 +219,8 @@ if __name__ == '__main__':
     ax1 = fig.add_subplot(122, title="top1err")
 
     # Finetuning the convnet
-    model = ft_net(len(class_names), opt.droprate, opt.stride, circle=opt.circle)
+    # model = ft_net(len(class_names), opt.droprate, opt.stride, circle=opt.circle)
+    model = mob_net(len(class_names), opt.droprate, opt.stride, circle=opt.circle)
 
     ignored_params = list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
@@ -240,11 +242,6 @@ if __name__ == '__main__':
 
     # model to gpu
     model = model.to(device)
-
-    if fp16:
-        #model = network_to_half(model)
-        #optimizer_ft = FP16_Optimizer(optimizer_ft, static_loss_scale = 128.0)
-        model, optimizer_ft = amp.initialize(model, optimizer_ft, opt_level = "O1")
 
     criterion = nn.CrossEntropyLoss()
 
