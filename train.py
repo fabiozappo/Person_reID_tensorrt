@@ -42,7 +42,7 @@ def save_network(network, epoch_label):
         network.cuda()
 
 
-def train_model(model, criterion, optimizer, scheduler, num_epochs=25, fp16=False):
+def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     since = time.time()
 
     # fp16 training
@@ -165,12 +165,10 @@ if __name__ == '__main__':
     parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
     parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
     parser.add_argument('--circle', action='store_true', help='use Circle loss')
-    parser.add_argument('--fp16', action='store_true',
-                        help='use float16 instead of float32, which will save about half memory')
     opt = parser.parse_args()
 
-    fp16, data_dir, name, batchsize, warm_epoch, num_epochs = \
-        opt.fp16, opt.data_dir, opt.name, opt.batchsize, opt.warm_epoch, opt.num_epochs
+    data_dir, name, batchsize, warm_epoch, num_epochs = \
+        opt.data_dir, opt.name, opt.batchsize, opt.warm_epoch, opt.num_epochs
 
     transform_train_list = [
         transforms.Resize((256, 128), interpolation=3),
@@ -245,5 +243,5 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss()
 
-    model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=num_epochs, fp16=fp16)
+    model = train_model(model, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=num_epochs)
 
