@@ -23,6 +23,7 @@ from apex.fp16_utils import *
 from apex import amp
 from circle_loss import CircleLoss, convert_label_to_similarity
 
+
 def draw_curve(current_epoch):
     x_epoch.append(current_epoch)
     ax0.plot(x_epoch, y_loss['train'], 'bo-', label='train')
@@ -33,6 +34,7 @@ def draw_curve(current_epoch):
         ax0.legend()
         ax1.legend()
     fig.savefig( os.path.join('./model',name,'train.jpg'))
+
 
 def save_network(network, epoch_label):
     save_filename = 'net_%s.pth'% epoch_label

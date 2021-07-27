@@ -65,7 +65,7 @@ class ft_net(nn.Module):
 
     def __init__(self, class_num, droprate=0.5, stride=2, circle=False):
         super(ft_net, self).__init__()
-        model_ft = models.resnet50(pretrained=False)
+        model_ft = models.resnet50(pretrained=True)
         # avg pooling to global pooling
         if stride == 1:
             model_ft.layer4[0].downsample[0].stride = (1,1)
@@ -125,7 +125,7 @@ class mob_net(nn.Module):
 
     def __init__(self, class_num, droprate=0.5, stride=2, circle=False):
         super(mob_net, self).__init__()
-        model_ft = models.mobilenet_v3_small(pretrained=False)
+        model_ft = models.mobilenet_v3_small(pretrained=True)
         # avg pooling to global pooling
         if stride == 1:
             model_ft.layer4[0].downsample[0].stride = (1,1)
@@ -136,14 +136,7 @@ class mob_net(nn.Module):
         self.classifier = ClassBlock(576, class_num, droprate, return_f = circle)
 
     def forward(self, x):
-        x = self.model.conv1(x)
-        x = self.model.bn1(x)
-        x = self.model.relu(x)
-        x = self.model.maxpool(x)
-        x = self.model.layer1(x)
-        x = self.model.layer2(x)
-        x = self.model.layer3(x)
-        x = self.model.layer4(x)
+        x = self.model.features(x)
         x = self.model.avgpool(x)
         x = x.view(x.size(0), x.size(1))
         x = self.classifier(x)
