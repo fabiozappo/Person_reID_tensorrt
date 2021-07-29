@@ -160,7 +160,6 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='ft_ResNet50', type=str, help='output model name')
     parser.add_argument('--data_dir', default='../Market/pytorch', type=str, help='training dir path')
     parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
-    parser.add_argument('--stride', default=2, type=int, help='stride')
     parser.add_argument('--num_epochs', default=60, type=int, help='training epochs')
     parser.add_argument('--use_dense', action='store_true', help='use densenet121')
     parser.add_argument('--warm_epoch', default=0, type=int, help='the first K epoch that needs warm up')
@@ -219,8 +218,8 @@ if __name__ == '__main__':
     ax1 = fig.add_subplot(122, title="top1err")
 
     # Finetuning the convnet
-    # model = ft_net(len(class_names), opt.droprate, opt.stride, circle=opt.circle)
-    model = mob_net(len(class_names), opt.droprate, opt.stride, circle=opt.circle)
+    # model = ft_net(len(class_names), opt.droprate, circle=opt.circle)
+    model = mob_net(len(class_names), opt.droprate, circle=opt.circle)
 
     ignored_params = list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())

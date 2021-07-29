@@ -69,7 +69,7 @@ class ClassBlock(nn.Module):
 # Define the ResNet50-based Model
 class res_net50(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5, stride=2, circle=False):
+    def __init__(self, class_num, droprate=0.5, circle=False):
         super(res_net50, self).__init__()
         model_ft = models.resnet50(pretrained=True)
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1,1))
@@ -95,7 +95,7 @@ class res_net50(nn.Module):
 # Define the ResNet50-based Model
 class res_net18(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5, stride=2, circle=False):
+    def __init__(self, class_num, droprate=0.5, circle=False):
         super(res_net18, self).__init__()
         model_ft = models.resnet18(pretrained=True)
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
@@ -121,7 +121,7 @@ class res_net18(nn.Module):
 # Define the MobilenetV2 based Model
 class mob_net(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5, stride=2, circle=False):
+    def __init__(self, class_num, droprate=0.5, circle=False):
         super(mob_net, self).__init__()
         model_ft = models.mobilenet_v2(pretrained=True)
         # avg pooling to global pooling
@@ -141,7 +141,7 @@ class mob_net(nn.Module):
 # Define the squeeze_net-based Model
 class squeeze_net(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5, stride=2, circle=False):
+    def __init__(self, class_num, droprate=0.5, circle=False):
         super(squeeze_net, self).__init__()
         model_ft = models.squeezenet1_1(pretrained=True)
         self.model = model_ft
@@ -164,7 +164,7 @@ python model.py
 if __name__ == '__main__':
     # Here I left a simple forward function.
     # Test the model, before you train it.
-    net = mob_net(751, stride=1)
+    net = mob_net(751)
     print(net)
     input = Variable(torch.FloatTensor(8, 3, 256, 128))
     output = net(input)
