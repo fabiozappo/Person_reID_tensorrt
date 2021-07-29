@@ -15,7 +15,7 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import time
 import os
-from model import res_net50, mob_net
+from model import res_net50, res_net18, squeeze_net, mob_net
 from random_erasing import RandomErasing
 import yaml
 from shutil import copyfile
@@ -23,6 +23,20 @@ from apex.fp16_utils import *
 from apex import amp
 from circle_loss import CircleLoss, convert_label_to_similarity
 
+
+tested_models = ('ResNet50', 'ResNet18', 'SqueezeNet', 'MobileNet')
+
+def select_model(model_name, class_num, droprate, cirle):
+    assert model_name in tested_models, f'model_name must be one of the following: {tested_models}, found {model_name}'
+    if model_name == 'ResNet50':
+        model = res_net50(class_num=class_num, droprate=droprate, circle=circle)
+    elif model_name == 'ResNet18':
+        model = res_net18(class_num=class_num, droprate=droprate, circle=circle)
+    elif model_name == 'SqueezeNet':
+        model = squeeze_net(class_num=class_num, droprate=droprate, circle=circle)
+    else:
+        model = mob_net(class_num=class_num, droprate=droprate, circle=circle)
+    return model
 
 def draw_curve(current_epoch):
     x_epoch.append(current_epoch)
@@ -62,10 +76,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
             if phase == 'train':
-                scheduler.step()
                 model.train(True)  # Set model to training mode
             else:
-                model.train(False)  # Set model to evaluate mode
+                model.eval()  # Set model to evaluate mode
 
             running_loss = 0.0
             running_corrects = 0.0
@@ -117,6 +130,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                     scaler.scale(loss).backward()
                     scaler.step(optimizer)
                     scaler.update()
+                    scheduler.step()
 
                 # statistics
                 running_loss += loss.item() * now_batch_size
@@ -157,7 +171,7 @@ version = torch.__version__
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Training')
-    parser.add_argument('--name', default='ft_ResNet50', type=str, help='output model name')
+    parser.add_argument('--name', default='ResNet50', type=str, help='output model name')
     parser.add_argument('--data_dir', default='../Market/pytorch', type=str, help='training dir path')
     parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
     parser.add_argument('--num_epochs', default=60, type=int, help='training epochs')
@@ -166,9 +180,10 @@ if __name__ == '__main__':
     parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
     parser.add_argument('--circle', action='store_true', help='use Circle loss')
     opt = parser.parse_args()
+    print(opt)
 
-    data_dir, name, batchsize, warm_epoch, num_epochs = \
-        opt.data_dir, opt.name, opt.batchsize, opt.warm_epoch, opt.num_epochs
+    data_dir, name, batchsize, warm_epoch, num_epochs, droprate, circle = \
+        opt.data_dir, opt.name, opt.batchsize, opt.warm_epoch, opt.num_epochs, opt.droprate, opt.circle
 
     transform_train_list = [
         transforms.Resize((256, 128), interpolation=3),
@@ -217,14 +232,13 @@ if __name__ == '__main__':
     ax1 = fig.add_subplot(122, title="top1err")
 
     # Finetuning the convnet
-    # model = ft_net(len(class_names), opt.droprate, circle=opt.circle)
-    model = mob_net(len(class_names), opt.droprate, circle=opt.circle)
+    model = select_model(name, class_num=len(class_names), droprate=droprate, cirle=circle)
 
     ignored_params = list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
     optimizer_ft = optim.SGD([
              {'params': base_params, 'lr': 0.1*opt.lr},
-             {'params': model.classifier.parameters(), 'lr': opt.lr}
+             {'params': model.classifier.parameters(), 'lr': opt.lr} # todo: metter mano qui quando andrà modificata la rete
          ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 
     # Decay LR by a factor of 0.1 every 40 epochs
