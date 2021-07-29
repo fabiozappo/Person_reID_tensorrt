@@ -76,7 +76,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
             if phase == 'train':
-                model.train(True)  # Set model to training mode
+                model.train()  # Set model to training mode
             else:
                 model.eval()  # Set model to evaluate mode
 
@@ -91,16 +91,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 if now_batch_size < batchsize:  # skip the last batch
                     continue
 
-                # wrap them in Variable
-                if device == 'cuda':
-                    x = Variable(x.cuda().detach())
-                    y = Variable(y.cuda().detach())
-
-                else:
-                    x, y = Variable(x), Variable(y)
-
-                # zero the parameter gradients
-                optimizer.zero_grad()
+                x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
 
                 # forward
                 with torch.cuda.amp.autocast():
@@ -110,27 +101,34 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                     else:
                         outputs = model(x)
 
-                    # computing loss
-                    if opt.circle:
-                        logits, ff = outputs
-                        fnorm = torch.norm(ff, p=2, dim=1, keepdim=True)
-                        ff = ff.div(fnorm.expand_as(ff))
-                        loss = criterion(logits, y) + criterion_circle(*convert_label_to_similarity(ff, y)) / now_batch_size
-                        _, preds = torch.max(logits.data, 1)
-                    else:
-                        _, preds = torch.max(outputs.data, 1)
-                        loss = criterion(outputs, y)
+                # computing loss
+                if opt.circle:
+                    logits, ff = outputs
+                    fnorm = torch.norm(ff, p=2, dim=1, keepdim=True)
+                    ff = ff.div(fnorm.expand_as(ff))
+                    loss = criterion(logits, y) + criterion_circle(*convert_label_to_similarity(ff, y)) / now_batch_size
+                    _, preds = torch.max(logits.data, 1)
+                else:
+                    _, preds = torch.max(outputs.data, 1)
+                    loss = criterion(outputs, y)
 
-                # backward + optimize only if in training phase
+                # warmup
                 if epoch < warm_epoch and phase == 'train':
                     warm_up = min(1.0, warm_up + 0.9 / warm_iteration)
                     loss = loss * warm_up
 
+                # backward + optimize
                 if phase == 'train':
+                    # backward
                     scaler.scale(loss).backward()
+
+                    # optimize
                     scaler.step(optimizer)
                     scaler.update()
-                    scheduler.step()
+
+                    # zero the parameter gradients
+                    optimizer.zero_grad()
+
 
                 # statistics
                 running_loss += loss.item() * now_batch_size
@@ -150,10 +148,10 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 if epoch % 10 == 9:
                     save_network(model, epoch)
                 draw_curve(epoch)
+            else:
+                # scheduler
+                scheduler.step()
 
-        time_elapsed = time.time() - since
-        print('Training complete in {:.0f}m {:.0f}s'.format(
-            time_elapsed // 60, time_elapsed % 60))
         print()
 
     time_elapsed = time.time() - since
@@ -167,7 +165,6 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     return model
 
 
-version = torch.__version__
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Training')
