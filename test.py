@@ -13,7 +13,7 @@ import yaml
 from model import res_net50, mob_net, squeeze_net, res_net18
 from apex.fp16_utils import *
 from tqdm import tqdm
-
+from train import select_model
 
 def load_network(network):
     save_path = os.path.join('./model', name, 'net_%s.pth' % opt.which_epoch)
@@ -21,13 +21,17 @@ def load_network(network):
     return network
 
 
-def extract_feature(model, dataloaders, scales=(1, 1.1, 1.2)):
+def extract_feature(model, dataloaders, scales=(1, 1.1)):
     features = torch.FloatTensor()
+
+    # single inference to determine the dimension of extracted feature
+    _, ft_dim = model(next(iter(dataloaders))[0].to(device).half() if opt.half else next(iter(data_loader))[0].to(device)).shape
+
     for data in tqdm(dataloaders):
         img, label = data
         n, c, h, w = img.size()
 
-        ff = torch.FloatTensor(n, 512).zero_().to(device)
+        ff = torch.FloatTensor(n, ft_dim).zero_().to(device)
         img = img.to(device)
 
         if opt.half:
@@ -84,8 +88,9 @@ if __name__ == '__main__':
     parser.add_argument('--multi', action='store_true', help='use multiple query')
     parser.add_argument('--half', action='store_true', help='use fp16.')
     parser.add_argument('--augment', action='store_true', help='use horizontal flips and different scales in inference.')
-    print(opt)
     opt = parser.parse_args()
+    print(opt)
+
 
     # load the training config
     config_path = os.path.join('./model', opt.name, 'opts.yaml')
@@ -134,7 +139,7 @@ if __name__ == '__main__':
     ######################################################################
     # Load Collected data Trained model
     print('-------test-----------')
-    model_structure = mob_net(opt.nclasses)
+    model_structure = select_model(name, opt.nclasses)
 
     model = load_network(model_structure)
 

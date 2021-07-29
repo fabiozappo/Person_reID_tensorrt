@@ -26,7 +26,7 @@ from circle_loss import CircleLoss, convert_label_to_similarity
 
 tested_models = ('ResNet50', 'ResNet18', 'SqueezeNet', 'MobileNet')
 
-def select_model(model_name, class_num, droprate, cirle):
+def select_model(model_name, class_num, droprate=0.5, circle=False):
     assert model_name in tested_models, f'model_name must be one of the following: {tested_models}, found {model_name}'
     if model_name == 'ResNet50':
         model = res_net50(class_num=class_num, droprate=droprate, circle=circle)
