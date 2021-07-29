@@ -4,12 +4,13 @@ from torch.nn import init
 from torchvision import models
 from torch.autograd import Variable
 
+
 ######################################################################
 def weights_init_kaiming(m):
     classname = m.__class__.__name__
     # print(classname)
     if classname.find('Conv') != -1:
-        init.kaiming_normal_(m.weight.data, a=0, mode='fan_in') # For old pytorch, you may use kaiming_normal.
+        init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')  # For old pytorch, you may use kaiming_normal.
     elif classname.find('Linear') != -1:
         init.kaiming_normal_(m.weight.data, a=0, mode='fan_out')
         init.constant_(m.bias.data, 0.0)
@@ -17,16 +18,19 @@ def weights_init_kaiming(m):
         init.normal_(m.weight.data, 1.0, 0.02)
         init.constant_(m.bias.data, 0.0)
 
+
 def weights_init_classifier(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
         init.normal_(m.weight.data, std=0.001)
         init.constant_(m.bias.data, 0.0)
 
+
 # Defines the new fc layer and classification layer
 # |--Linear--|--bn--|--relu--|--Linear--|
 class ClassBlock(nn.Module):
-    def __init__(self, input_dim, class_num, droprate, relu=False, bnorm=True, num_bottleneck=512, linear=True, return_f = False):
+    def __init__(self, input_dim, class_num, droprate, relu=False, bnorm=True, num_bottleneck=512, linear=True,
+                 return_f=False):
         super(ClassBlock, self).__init__()
         self.return_f = return_f
         add_block = []
@@ -38,7 +42,7 @@ class ClassBlock(nn.Module):
             add_block += [nn.BatchNorm1d(num_bottleneck)]
         if relu:
             add_block += [nn.LeakyReLU(0.1)]
-        if droprate>0:
+        if droprate > 0:
             add_block += [nn.Dropout(p=droprate)]
         add_block = nn.Sequential(*add_block)
         add_block.apply(weights_init_kaiming)
@@ -50,30 +54,28 @@ class ClassBlock(nn.Module):
 
         self.add_block = add_block
         self.classifier = classifier
+
     def forward(self, x):
         x = self.add_block(x)
         if self.return_f:
             f = x
             x = self.classifier(x)
-            return [x,f]
+            return [x, f]
         else:
             x = self.classifier(x)
             return x
 
+
 # Define the ResNet50-based Model
-class ft_net(nn.Module):
+class res_net50(nn.Module):
 
     def __init__(self, class_num, droprate=0.5, stride=2, circle=False):
-        super(ft_net, self).__init__()
+        super(res_net50, self).__init__()
         model_ft = models.resnet50(pretrained=True)
-        # avg pooling to global pooling
-        if stride == 1:
-            model_ft.layer4[0].downsample[0].stride = (1,1)
-            model_ft.layer4[0].conv2.stride = (1,1)
-        # model_ft.avgpool = nn.AdaptiveAvgPool2d((1,1)) sembra inutile come riga di codice, c'è già un adapavgpool
+        model_ft.avgpool = nn.AdaptiveAvgPool2d((1,1))
         self.model = model_ft
         self.circle = circle
-        self.classifier = ClassBlock(2048, class_num, droprate, return_f = circle)
+        self.classifier = ClassBlock(2048, class_num, droprate, return_f=circle)
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -89,17 +91,17 @@ class ft_net(nn.Module):
         x = self.classifier(x)
         return x
 
-# Define the ResNet50-based Model (Middle-Concat)
-# In the spirit of "The Devil is in the Middle: Exploiting Mid-level Representations for Cross-Domain Instance Matching." Yu, Qian, et al. arXiv:1711.08106 (2017).
-class ft_net_middle(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5):
-        super(ft_net_middle, self).__init__()
-        model_ft = models.resnet50(pretrained=True)
-        # avg pooling to global pooling
-        model_ft.avgpool = nn.AdaptiveAvgPool2d((1,1))
+# Define the ResNet50-based Model
+class res_net18(nn.Module):
+
+    def __init__(self, class_num, droprate=0.5, stride=2, circle=False):
+        super(res_net18, self).__init__()
+        model_ft = models.resnet18(pretrained=True)
+        model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.model = model_ft
-        self.classifier = ClassBlock(2048+1024, class_num, droprate)
+        self.circle = circle
+        self.classifier = ClassBlock(512, class_num, droprate, return_f=circle)
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -109,31 +111,24 @@ class ft_net_middle(nn.Module):
         x = self.model.layer1(x)
         x = self.model.layer2(x)
         x = self.model.layer3(x)
-        # x0  n*1024*1*1
-        x0 = self.model.avgpool(x)
         x = self.model.layer4(x)
-        # x1  n*2048*1*1
-        x1 = self.model.avgpool(x)
-        x = torch.cat((x0,x1),1)
+        x = self.model.avgpool(x)
         x = x.view(x.size(0), x.size(1))
         x = self.classifier(x)
         return x
 
 
-# Define the MobilenetV3 based Model
+# Define the MobilenetV2 based Model
 class mob_net(nn.Module):
 
     def __init__(self, class_num, droprate=0.5, stride=2, circle=False):
         super(mob_net, self).__init__()
-        model_ft = models.mobilenet_v3_small(pretrained=True)
+        model_ft = models.mobilenet_v2(pretrained=True)
         # avg pooling to global pooling
-        if stride == 1:
-            model_ft.layer4[0].downsample[0].stride = (1,1)
-            model_ft.layer4[0].conv2.stride = (1,1)
-        # model_ft.avgpool = nn.AdaptiveAvgPool2d((1,1))
+        model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.model = model_ft
         self.circle = circle
-        self.classifier = ClassBlock(576, class_num, droprate, return_f = circle)
+        self.classifier = ClassBlock(1280, class_num, droprate, return_f=circle)
 
     def forward(self, x):
         x = self.model.features(x)
@@ -142,16 +137,34 @@ class mob_net(nn.Module):
         x = self.classifier(x)
         return x
 
+
+# Define the squeeze_net-based Model
+class squeeze_net(nn.Module):
+
+    def __init__(self, class_num, droprate=0.5, stride=2, circle=False):
+        super(squeeze_net, self).__init__()
+        model_ft = models.squeezenet1_1(pretrained=True)
+        self.model = model_ft
+        self.circle = circle
+        self.classifier = ClassBlock(1000, class_num, droprate, return_f=circle)
+
+    def forward(self, x):
+        x = self.model.features(x)
+        x = self.model.classifier(x)
+        x = x.view(x.size(0), x.size(1))
+        x = self.classifier(x)
+        return x
+
+
 '''
 # debug model structure
 # Run this code with:
 python model.py
 '''
 if __name__ == '__main__':
-# Here I left a simple forward function.
-# Test the model, before you train it. 
-    net = ft_net(751, stride=1)
-    net.classifier = nn.Sequential()
+    # Here I left a simple forward function.
+    # Test the model, before you train it.
+    net = mob_net(751, stride=1)
     print(net)
     input = Variable(torch.FloatTensor(8, 3, 256, 128))
     output = net(input)

@@ -15,7 +15,7 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import time
 import os
-from model import ft_net, mob_net
+from model import res_net50, mob_net
 from random_erasing import RandomErasing
 import yaml
 from shutil import copyfile
