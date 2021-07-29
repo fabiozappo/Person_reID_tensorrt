@@ -15,7 +15,7 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import time
 import os
-from model import res_net50, res_net18, squeeze_net, mob_net
+from model import res_net50, res_net18, squeeze_net, mob_net, deep_net
 from random_erasing import RandomErasing
 import yaml
 from shutil import copyfile
@@ -24,7 +24,7 @@ from apex import amp
 from circle_loss import CircleLoss, convert_label_to_similarity
 
 
-tested_models = ('ResNet50', 'ResNet18', 'SqueezeNet', 'MobileNet')
+tested_models = ('ResNet50', 'ResNet18', 'SqueezeNet', 'MobileNet', 'Deep')
 
 def select_model(model_name, class_num, droprate=0.5, circle=False):
     assert model_name in tested_models, f'model_name must be one of the following: {tested_models}, found {model_name}'
@@ -34,8 +34,10 @@ def select_model(model_name, class_num, droprate=0.5, circle=False):
         model = res_net18(class_num=class_num, droprate=droprate, circle=circle)
     elif model_name == 'SqueezeNet':
         model = squeeze_net(class_num=class_num, droprate=droprate, circle=circle)
-    else:
+    elif model_name == 'Deep':
         model = mob_net(class_num=class_num, droprate=droprate, circle=circle)
+    else:
+        model = deep_net(class_num=class_num, droprate=droprate, circle=circle)
     return model
 
 def draw_curve(current_epoch):
@@ -229,7 +231,7 @@ if __name__ == '__main__':
     ax1 = fig.add_subplot(122, title="top1err")
 
     # Finetuning the convnet
-    model = select_model(name, class_num=len(class_names), droprate=droprate, cirle=circle)
+    model = select_model(name, class_num=len(class_names), droprate=droprate, circle=circle)
 
     ignored_params = list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())

@@ -15,6 +15,7 @@ from apex.fp16_utils import *
 from tqdm import tqdm
 from train import select_model
 
+
 def load_network(network):
     save_path = os.path.join('./model', name, 'net_%s.pth' % opt.which_epoch)
     network.load_state_dict(torch.load(save_path))

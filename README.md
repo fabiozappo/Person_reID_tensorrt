@@ -19,3 +19,5 @@ TODO: in tutte le reti va cambiato il collo, diminuendo il numero dei filtri con
 
 
 It would be cool to test some new networks like efficientnet b0 and mobilenet_v3, however trt parser is not still working.
+
+test.py use matrix moltiplication between normalized features which is equivalent to (1 - cosine similarity)
