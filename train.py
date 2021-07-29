@@ -161,7 +161,6 @@ if __name__ == '__main__':
     parser.add_argument('--data_dir', default='../Market/pytorch', type=str, help='training dir path')
     parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
     parser.add_argument('--num_epochs', default=60, type=int, help='training epochs')
-    parser.add_argument('--use_dense', action='store_true', help='use densenet121')
     parser.add_argument('--warm_epoch', default=0, type=int, help='the first K epoch that needs warm up')
     parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
     parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
