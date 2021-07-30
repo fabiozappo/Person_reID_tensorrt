@@ -18,8 +18,8 @@ import os
 from model import res_net50, res_net18, squeeze_net, mob_net, deep_net
 import yaml
 from shutil import copyfile
-from apex.fp16_utils import *
-from apex import amp
+# from apex.fp16_utils import *
+from torch.cuda import amp
 from circle_loss import CircleLoss, convert_label_to_similarity
 
 # TODO: trainare e valutare il modello nelle condizioni del nostro caso d'uso, no interpolazione bicubica, minori dimensioni?
@@ -67,7 +67,7 @@ def save_network(network, epoch_label):
 def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
     # fp16 training
-    scaler = torch.cuda.amp.GradScaler()
+    scaler = amp.GradScaler()
 
     warm_up = 0.1  # We start from the 0.1*lrRate
     warm_iteration = round(dataset_sizes['train'] / batchsize) * warm_epoch  # first 5 epoch
@@ -100,29 +100,32 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 
                 x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
 
+                # zero the parameter gradients
+                optimizer.zero_grad()
+
                 # forward
-                with torch.cuda.amp.autocast():
+                with amp.autocast():
                     if phase == 'val':
                         with torch.no_grad():
                             outputs = model(x)
                     else:
                         outputs = model(x)
 
-                # computing loss
-                if opt.circle:
-                    logits, ff = outputs
-                    fnorm = torch.norm(ff, p=2, dim=1, keepdim=True)
-                    ff = ff.div(fnorm.expand_as(ff))
-                    loss = criterion(logits, y) + criterion_circle(*convert_label_to_similarity(ff, y)) / now_batch_size
-                    _, preds = torch.max(logits.data, 1)
-                else:
-                    _, preds = torch.max(outputs.data, 1)
-                    loss = criterion(outputs, y)
+                    # computing loss
+                    if opt.circle:
+                        logits, ff = outputs
+                        fnorm = torch.norm(ff, p=2, dim=1, keepdim=True)
+                        ff = ff.div(fnorm.expand_as(ff))
+                        loss = criterion(logits, y) + criterion_circle(*convert_label_to_similarity(ff, y)) / now_batch_size
+                        _, preds = torch.max(logits.data, 1)
+                    else:
+                        _, preds = torch.max(outputs.data, 1)
+                        loss = criterion(outputs, y)
 
-                # warmup
-                if epoch < warm_epoch and phase == 'train':
-                    warm_up = min(1.0, warm_up + 0.9 / warm_iteration)
-                    loss = loss * warm_up
+                    # warmup
+                    if epoch < warm_epoch and phase == 'train':
+                        warm_up = min(1.0, warm_up + 0.9 / warm_iteration)
+                        loss = loss * warm_up
 
                 # backward + optimize
                 if phase == 'train':
@@ -133,8 +136,6 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                     scaler.step(optimizer)
                     scaler.update()
 
-                    # zero the parameter gradients
-                    optimizer.zero_grad()
 
 
                 # statistics

@@ -46,12 +46,12 @@ class ClassBlock(nn.Module):
         if droprate > 0:
             add_block += [nn.Dropout(p=droprate)]
         add_block = nn.Sequential(*add_block)
-        add_block.apply(weights_init_kaiming)
+        # add_block.apply(weights_init_kaiming)
 
         classifier = []
         classifier += [nn.Linear(num_bottleneck, class_num)]
         classifier = nn.Sequential(*classifier)
-        classifier.apply(weights_init_classifier)
+        # classifier.apply(weights_init_classifier)
 
         self.add_block = add_block
         self.classifier = classifier
@@ -70,13 +70,13 @@ class ClassBlock(nn.Module):
 # Define the ResNet50-based Model
 class res_net50(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5, circle=False):
+    def __init__(self, class_num, droprate=0.5, circle=False, num_bottleneck=512):
         super(res_net50, self).__init__()
         model_ft = models.resnet50(pretrained=True)
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1,1))
         self.model = model_ft
         self.circle = circle
-        self.classifier = ClassBlock(2048, class_num, droprate, return_f=circle)
+        self.classifier = ClassBlock(2048, class_num, droprate, return_f=circle, num_bottleneck=num_bottleneck)
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -96,13 +96,13 @@ class res_net50(nn.Module):
 # Define the ResNet50-based Model
 class res_net18(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5, circle=False):
+    def __init__(self, class_num, droprate=0.5, circle=False, num_bottleneck=512):
         super(res_net18, self).__init__()
         model_ft = models.resnet18(pretrained=True)
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.model = model_ft
         self.circle = circle
-        self.classifier = ClassBlock(512, class_num, droprate, return_f=circle)
+        self.classifier = ClassBlock(512, class_num, droprate, return_f=circle, num_bottleneck=num_bottleneck)
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -122,14 +122,14 @@ class res_net18(nn.Module):
 # Define the MobilenetV2 based Model
 class mob_net(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5, circle=False):
+    def __init__(self, class_num, droprate=0.5, circle=False, num_bottleneck=512):
         super(mob_net, self).__init__()
         model_ft = models.mobilenet_v2(pretrained=True)
         # avg pooling to global pooling
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.model = model_ft
         self.circle = circle
-        self.classifier = ClassBlock(1280, class_num, droprate, return_f=circle)
+        self.classifier = ClassBlock(1280, class_num, droprate, return_f=circle, num_bottleneck=num_bottleneck)
 
     def forward(self, x):
         x = self.model.features(x)
@@ -142,12 +142,12 @@ class mob_net(nn.Module):
 # Define the squeeze_net-based Model
 class squeeze_net(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5, circle=False):
+    def __init__(self, class_num, droprate=0.5, circle=False, num_bottleneck=512):
         super(squeeze_net, self).__init__()
         model_ft = models.squeezenet1_1(pretrained=True)
         self.model = model_ft
         self.circle = circle
-        self.classifier = ClassBlock(1000, class_num, droprate, return_f=circle)
+        self.classifier = ClassBlock(1000, class_num, droprate, return_f=circle, num_bottleneck=num_bottleneck)
 
     def forward(self, x):
         x = self.model.features(x)
@@ -159,13 +159,13 @@ class squeeze_net(nn.Module):
 
 class deep_net(nn.Module):
 
-    def __init__(self, class_num, droprate=0.5, circle=False):
+    def __init__(self, class_num, droprate=0.5, circle=False, num_bottleneck=512):
         super(deep_net, self).__init__()
         model_ft = Deep(num_classes=class_num)
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.model = model_ft
         self.circle = circle
-        self.classifier = ClassBlock(512, class_num, droprate, return_f=circle)
+        self.classifier = ClassBlock(512, class_num, droprate, return_f=circle, num_bottleneck=num_bottleneck)
 
     def forward(self, x):
         x = self.model.conv(x)
@@ -185,7 +185,7 @@ python model.py
 if __name__ == '__main__':
     # Here I left a simple forward function.
     # Test the model, before you train it.
-    net = mob_net(751)
+    net = mob_net(751, num_bottleneck=128)
     # remove last fc from classifier part
     net.classifier.classifier = nn.Sequential()
     print(net)
