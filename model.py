@@ -36,7 +36,7 @@ class ClassBlock(nn.Module):
         self.return_f = return_f
         add_block = []
         if linear:
-            add_block += [nn.Linear(input_dim, num_bottleneck)]
+            add_block += [nn.Linear(input_dim, num_bottleneck, bias=False)]
         else:
             num_bottleneck = input_dim
         if bnorm:
@@ -185,9 +185,11 @@ python model.py
 if __name__ == '__main__':
     # Here I left a simple forward function.
     # Test the model, before you train it.
-    net = deep_net(751)
+    net = mob_net(751)
+    # remove last fc from classifier part
+    net.classifier.classifier = nn.Sequential()
     print(net)
-    input = Variable(torch.FloatTensor(8, 3, 256, 128))
+    input = Variable(torch.FloatTensor(8, 3, 128, 64))
     output = net(input)
     print('net output size:')
     print(output.shape)

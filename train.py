@@ -16,15 +16,19 @@ import matplotlib.pyplot as plt
 import time
 import os
 from model import res_net50, res_net18, squeeze_net, mob_net, deep_net
-from random_erasing import RandomErasing
 import yaml
 from shutil import copyfile
 from apex.fp16_utils import *
 from apex import amp
 from circle_loss import CircleLoss, convert_label_to_similarity
 
+# TODO: trainare e valutare il modello nelle condizioni del nostro caso d'uso, no interpolazione bicubica, minori dimensioni?
+# TODO: installare torch2trt a livello di container
+# TODO: aggiungere flag trt in test.py
+# TODO: modificare gli ultimi layer delle reti in quanto non serve che i canali aumentano eccessivamente
 
 tested_models = ('ResNet50', 'ResNet18', 'SqueezeNet', 'MobileNet', 'Deep')
+
 
 def select_model(model_name, class_num, droprate=0.5, circle=False):
     assert model_name in tested_models, f'model_name must be one of the following: {tested_models}, found {model_name}'
@@ -34,7 +38,7 @@ def select_model(model_name, class_num, droprate=0.5, circle=False):
         model = res_net18(class_num=class_num, droprate=droprate, circle=circle)
     elif model_name == 'SqueezeNet':
         model = squeeze_net(class_num=class_num, droprate=droprate, circle=circle)
-    elif model_name == 'Deep':
+    elif model_name == 'MobileNet':
         model = mob_net(class_num=class_num, droprate=droprate, circle=circle)
     else:
         model = deep_net(class_num=class_num, droprate=droprate, circle=circle)
@@ -61,7 +65,6 @@ def save_network(network, epoch_label):
 
 
 def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
-    since = time.time()
 
     # fp16 training
     scaler = torch.cuda.amp.GradScaler()
@@ -74,6 +77,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
+
+        since = time.time()
 
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
@@ -154,12 +159,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 # scheduler
                 scheduler.step()
 
+        print('Epoch completed in :', time.time() - since)
         print()
-
-    time_elapsed = time.time() - since
-    print('Training complete in {:.0f}m {:.0f}s'.format(
-        time_elapsed // 60, time_elapsed % 60))
-    # print('Best val Acc: {:4f}'.format(best_acc))
 
     # load best model weights
     model.load_state_dict(last_model_wts)
@@ -178,6 +179,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
     parser.add_argument('--droprate', default=0.5, type=float, help='drop rate')
     parser.add_argument('--circle', action='store_true', help='use Circle loss')
+
     opt = parser.parse_args()
     print(opt)
 
@@ -185,16 +187,16 @@ if __name__ == '__main__':
         opt.data_dir, opt.name, opt.batchsize, opt.warm_epoch, opt.num_epochs, opt.droprate, opt.circle
 
     transform_train_list = [
-        transforms.Resize((256, 128), interpolation=3),
+        transforms.Resize((128, 64)), # default interpolation is bilinear
         transforms.Pad(10),
-        transforms.RandomCrop((256, 128)),
+        transforms.RandomCrop((128, 64)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ]
 
     transform_val_list = [
-        transforms.Resize(size=(256, 128), interpolation=3),
+        transforms.Resize((128, 64)), # default interpolation is bilinear
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ]
@@ -233,6 +235,7 @@ if __name__ == '__main__':
     # Finetuning the convnet
     model = select_model(name, class_num=len(class_names), droprate=droprate, circle=circle)
 
+    # Pretrained weights have a low lr
     ignored_params = list(map(id, model.classifier.parameters()))
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
     optimizer_ft = optim.SGD([
