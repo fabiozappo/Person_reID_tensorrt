@@ -14,6 +14,7 @@ from model import res_net50, mob_net, squeeze_net, res_net18
 from apex.fp16_utils import *
 from tqdm import tqdm
 from train import select_model
+from torch2trt import torch2trt
 
 
 def load_network(network):
@@ -22,11 +23,8 @@ def load_network(network):
     return network
 
 
-def extract_feature(model, dataloaders, scales=(1, 1.1)):
+def extract_feature(model, dataloaders, ft_dim, scales=(1, 1.1)):
     features = torch.FloatTensor()
-
-    # single inference to determine the dimension of extracted feature
-    _, ft_dim = model(next(iter(dataloaders))[0].to(device).half() if opt.half else next(iter(data_loader))[0].to(device)).shape
 
     for data in tqdm(dataloaders):
         img, label = data
@@ -89,6 +87,7 @@ if __name__ == '__main__':
     parser.add_argument('--multi', action='store_true', help='use multiple query')
     parser.add_argument('--half', action='store_true', help='use fp16.')
     parser.add_argument('--augment', action='store_true', help='use horizontal flips and different scales in inference.')
+    parser.add_argument('--trt', action='store_true', help='use trt instead of pytorch inference.')
     opt = parser.parse_args()
     print(opt)
 
@@ -101,7 +100,7 @@ if __name__ == '__main__':
     # which_epoch = opt.which_epoch
     name = opt.name
     test_dir = opt.test_dir
-    num_bottleneck = opt.num_bottleneck
+    num_bottleneck = config['num_bottleneck']
 
     # set gpu ids
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -154,10 +153,16 @@ if __name__ == '__main__':
     if opt.half and device == 'cuda':
         model = model.half()
 
+    if opt.trt:
+        # single batch to create trt engine
+        x = next(iter(dataloaders['gallery']))[0].to(device).half()
+        print(x)
+        model = torch2trt(model, [x], fp16_mode=opt.half, max_batch_size=opt.batchsize)
+
     # Extract feature
     with torch.no_grad():
-        gallery_feature = extract_feature(model, dataloaders['gallery'])
-        query_feature = extract_feature(model, dataloaders['query'])
+        gallery_feature = extract_feature(model, dataloaders['gallery'], ft_dim=num_bottleneck)
+        query_feature = extract_feature(model, dataloaders['query'], ft_dim=num_bottleneck)
         if opt.multi:
             mquery_feature = extract_feature(model, dataloaders['multi-query'])
 
