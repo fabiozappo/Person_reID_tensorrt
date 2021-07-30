@@ -30,18 +30,18 @@ from circle_loss import CircleLoss, convert_label_to_similarity
 tested_models = ('ResNet50', 'ResNet18', 'SqueezeNet', 'MobileNet', 'Deep')
 
 
-def select_model(model_name, class_num, droprate=0.5, circle=False):
+def select_model(model_name, class_num, droprate=0.5, circle=False, num_bottleneck=512):
     assert model_name in tested_models, f'model_name must be one of the following: {tested_models}, found {model_name}'
     if model_name == 'ResNet50':
-        model = res_net50(class_num=class_num, droprate=droprate, circle=circle)
+        model = res_net50(class_num=class_num, droprate=droprate, circle=circle, num_bottleneck=num_bottleneck)
     elif model_name == 'ResNet18':
-        model = res_net18(class_num=class_num, droprate=droprate, circle=circle)
+        model = res_net18(class_num=class_num, droprate=droprate, circle=circle, num_bottleneck=num_bottleneck)
     elif model_name == 'SqueezeNet':
-        model = squeeze_net(class_num=class_num, droprate=droprate, circle=circle)
+        model = squeeze_net(class_num=class_num, droprate=droprate, circle=circle, num_bottleneck=num_bottleneck)
     elif model_name == 'MobileNet':
-        model = mob_net(class_num=class_num, droprate=droprate, circle=circle)
+        model = mob_net(class_num=class_num, droprate=droprate, circle=circle, num_bottleneck=num_bottleneck)
     else:
-        model = deep_net(class_num=class_num, droprate=droprate, circle=circle)
+        model = deep_net(class_num=class_num, droprate=droprate, circle=circle, num_bottleneck=num_bottleneck)
     return model
 
 def draw_curve(current_epoch):
@@ -175,6 +175,7 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='ResNet50', type=str, help='output model name')
     parser.add_argument('--data_dir', default='../Market/pytorch', type=str, help='training dir path')
     parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
+    parser.add_argument('--num_bottleneck', default=512, type=int, help='dim of last fc before classification')
     parser.add_argument('--num_epochs', default=60, type=int, help='training epochs')
     parser.add_argument('--warm_epoch', default=0, type=int, help='the first K epoch that needs warm up')
     parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
@@ -184,8 +185,8 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     print(opt)
 
-    data_dir, name, batchsize, warm_epoch, num_epochs, droprate, circle = \
-        opt.data_dir, opt.name, opt.batchsize, opt.warm_epoch, opt.num_epochs, opt.droprate, opt.circle
+    data_dir, name, batchsize, warm_epoch, num_epochs, droprate, circle, num_bottleneck = \
+        opt.data_dir, opt.name, opt.batchsize, opt.warm_epoch, opt.num_epochs, opt.droprate, opt.circle, opt.num_bottleneck
 
     transform_train_list = [
         transforms.Resize((128, 64)), # default interpolation is bilinear
@@ -234,7 +235,7 @@ if __name__ == '__main__':
     ax1 = fig.add_subplot(122, title="top1err")
 
     # Finetuning the convnet
-    model = select_model(name, class_num=len(class_names), droprate=droprate, circle=circle)
+    model = select_model(name, class_num=len(class_names), droprate=droprate, circle=circle, num_bottleneck=num_bottleneck)
 
     # Pretrained weights have a low lr
     ignored_params = list(map(id, model.classifier.parameters()))
@@ -257,6 +258,7 @@ if __name__ == '__main__':
 
     # model to gpu
     model = model.to(device)
+    print(model)
 
     criterion = nn.CrossEntropyLoss()
 

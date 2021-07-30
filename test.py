@@ -101,6 +101,7 @@ if __name__ == '__main__':
     # which_epoch = opt.which_epoch
     name = opt.name
     test_dir = opt.test_dir
+    num_bottleneck = opt.num_bottleneck
 
     # set gpu ids
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -140,7 +141,7 @@ if __name__ == '__main__':
     ######################################################################
     # Load Collected data Trained model
     print('-------test-----------')
-    model_structure = select_model(name, opt.nclasses)
+    model_structure = select_model(name, class_num=opt.nclasses, num_bottleneck=num_bottleneck)
 
     model = load_network(model_structure)
 
