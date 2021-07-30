@@ -154,9 +154,9 @@ if __name__ == '__main__':
         model = model.half()
 
     if opt.trt:
-        # single batch to create trt engine
-        x = next(iter(dataloaders['gallery']))[0].to(device).half()
-        print(x)
+        # get single batch to give use it as example to create trt engine
+        x = next(iter(dataloaders['gallery']))[0].to(device).half() if opt.half else next(iter(dataloaders['gallery']))[0].to(device)
+        print('Generating tensorrt engine...')
         model = torch2trt(model, [x], fp16_mode=opt.half, max_batch_size=opt.batchsize)
 
     # Extract feature
