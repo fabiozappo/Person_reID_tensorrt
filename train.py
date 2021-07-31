@@ -23,8 +23,6 @@ from torch.cuda import amp
 from circle_loss import CircleLoss, convert_label_to_similarity
 
 # TODO: trainare e valutare il modello nelle condizioni del nostro caso d'uso, no interpolazione bicubica, minori dimensioni?
-# TODO: installare torch2trt a livello di container
-# TODO: aggiungere flag trt in test.py
 # TODO: modificare gli ultimi layer delle reti in quanto non serve che i canali aumentano eccessivamente
 
 tested_models = ('ResNet50', 'ResNet18', 'SqueezeNet', 'MobileNet', 'Deep')

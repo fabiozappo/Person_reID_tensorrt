@@ -55,6 +55,8 @@ class res_net50(nn.Module):
         self.model = model_ft
         self.circle = circle
         self.classifier = ClassBlock(2048, class_num, droprate, return_f=circle, num_bottleneck=num_bottleneck)
+        del model_ft.classifier
+
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -81,6 +83,7 @@ class res_net18(nn.Module):
         self.model = model_ft
         self.circle = circle
         self.classifier = ClassBlock(512, class_num, droprate, return_f=circle, num_bottleneck=num_bottleneck)
+        del model_ft.classifier
 
     def forward(self, x):
         x = self.model.conv1(x)
@@ -108,6 +111,7 @@ class mob_net(nn.Module):
         self.model = model_ft
         self.circle = circle
         self.classifier = ClassBlock(1280, class_num, droprate, return_f=circle, num_bottleneck=num_bottleneck)
+        del model_ft.classifier
 
     def forward(self, x):
         x = self.model.features(x)
@@ -171,3 +175,4 @@ if __name__ == '__main__':
     output = net(input)
     print('net output size:')
     print(output.shape)
+    print(net.model.features[18])
