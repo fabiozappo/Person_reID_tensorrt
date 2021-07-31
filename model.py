@@ -110,8 +110,9 @@ class mob_net(nn.Module):
         model_ft.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.model = model_ft
         self.circle = circle
-        self.classifier = ClassBlock(1280, class_num, droprate, return_f=circle, num_bottleneck=num_bottleneck)
-        del model_ft.classifier
+        # removing last bottleneck and classifier and change them
+        del model_ft.classifier, model_ft.features[18]
+        self.classifier = ClassBlock(320, class_num, droprate, return_f=circle, num_bottleneck=num_bottleneck)
 
     def forward(self, x):
         x = self.model.features(x)
@@ -175,4 +176,3 @@ if __name__ == '__main__':
     output = net(input)
     print('net output size:')
     print(output.shape)
-    print(net.model.features[18])

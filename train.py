@@ -240,8 +240,8 @@ if __name__ == '__main__':
     base_params = filter(lambda p: id(p) not in ignored_params, model.parameters())
     optimizer_ft = optim.SGD([
              {'params': base_params, 'lr': 0.1*opt.lr},
-             {'params': model.classifier.parameters(), 'lr': opt.lr} # todo: metter mano qui quando andrà modificata la rete
-         ], weight_decay=5e-4, momentum=0.9, nesterov=True)
+             {'params': model.classifier.parameters(), 'lr': opt.lr}
+    ], weight_decay=5e-4, momentum=0.9, nesterov=True)
 
     # Decay LR by a factor of 0.1 every 40 epochs
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=40, gamma=0.1)
